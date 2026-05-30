@@ -1,0 +1,267 @@
+:root {
+    --primary: #4ade80;
+    --primary-glow: rgba(74, 222, 128, 0.5);
+    --danger: #ef4444;
+    --danger-glow: rgba(239, 68, 68, 0.5);
+    --bg-color: #0f172a;
+    --panel-bg: rgba(30, 41, 59, 0.7);
+    --panel-border: rgba(255, 255, 255, 0.1);
+    --text-main: #f8fafc;
+    --text-muted: #94a3b8;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    user-select: none;
+}
+
+body, html {
+    width: 100%;
+    height: 100%;
+    overflow: hidden;
+    background-color: var(--bg-color);
+    font-family: 'Outfit', 'Noto Sans TC', sans-serif;
+    color: var(--text-main);
+}
+
+#gameCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+    z-index: 1;
+}
+
+#ui-layer {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 10;
+    pointer-events: none; /* Let clicks pass through to canvas if needed, except screens */
+}
+
+.screen {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.4s ease, visibility 0.4s ease;
+    backdrop-filter: blur(8px);
+    background: rgba(15, 23, 42, 0.6);
+    pointer-events: auto;
+}
+
+.screen.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Specific UI for HUD */
+#hud {
+    justify-content: flex-start;
+    align-items: flex-start;
+    padding: 24px;
+    background: none;
+    backdrop-filter: none;
+    pointer-events: none;
+}
+
+#hud.active {
+    display: flex;
+    flex-direction: row;
+    justify-content: space-between;
+    width: 100%;
+}
+
+.hud-stats {
+    display: flex;
+    gap: 32px;
+}
+
+.hud-item {
+    display: flex;
+    flex-direction: column;
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    padding: 12px 24px;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(12px);
+}
+
+.hud-item .label {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 4px;
+}
+
+.hud-item .value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--primary);
+    text-shadow: 0 0 10px var(--primary-glow);
+}
+
+#health-bar-container {
+    width: 200px;
+    height: 12px;
+    background: rgba(0,0,0,0.5);
+    border-radius: 6px;
+    margin-top: 8px;
+    overflow: hidden;
+    position: relative;
+}
+
+#health-bar {
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary), #34d399);
+    border-radius: 6px;
+    transition: width 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 0 10px var(--primary-glow);
+}
+
+#health-bar.low {
+    background: linear-gradient(90deg, var(--danger), #f87171);
+    box-shadow: 0 0 10px var(--danger-glow);
+}
+
+/* Typography & Content inside screens */
+h1 {
+    font-size: 4rem;
+    font-weight: 900;
+    margin-bottom: 1rem;
+    background: linear-gradient(to right, #4ade80, #3b82f6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    text-shadow: 0 10px 30px rgba(74, 222, 128, 0.3);
+}
+
+h2 {
+    font-size: 3rem;
+    font-weight: 900;
+    margin-bottom: 2rem;
+    color: #f1f5f9;
+}
+
+p {
+    font-size: 1.2rem;
+    color: var(--text-muted);
+    margin-bottom: 2rem;
+}
+
+kbd {
+    background: rgba(255, 255, 255, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    border-radius: 6px;
+    padding: 0.2em 0.5em;
+    font-size: 1.1em;
+    color: var(--text-main);
+    box-shadow: 0 4px 0 rgba(0, 0, 0, 0.2);
+    margin: 0 4px;
+}
+
+.car-info {
+    background: rgba(0, 0, 0, 0.3);
+    padding: 16px 24px;
+    border-radius: 12px;
+    margin-bottom: 2rem;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    text-align: left;
+}
+
+.car-info p {
+    margin-bottom: 12px;
+    font-size: 1.1rem;
+}
+
+.car-info p:last-child {
+    margin-bottom: 0;
+}
+
+button {
+    background: var(--primary);
+    color: #064e3b;
+    font-family: inherit;
+    font-size: 1.2rem;
+    font-weight: 700;
+    padding: 16px 48px;
+    border: none;
+    border-radius: 9999px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    box-shadow: 0 4px 14px var(--primary-glow);
+}
+
+button:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(74, 222, 128, 0.6);
+    background: #22c55e;
+}
+
+button:active {
+    transform: translateY(1px);
+}
+
+/* Stats Container for Game Over */
+.stats-container {
+    display: flex;
+    gap: 24px;
+    margin-bottom: 3rem;
+}
+
+.stat-box {
+    background: var(--panel-bg);
+    border: 1px solid var(--panel-border);
+    padding: 24px 32px;
+    border-radius: 20px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-width: 160px;
+}
+
+.stat-box.highlight {
+    border-color: var(--primary);
+    box-shadow: 0 0 20px var(--primary-glow);
+    transform: scale(1.05);
+}
+
+.stat-box.danger {
+    border-color: var(--danger);
+}
+
+.stat-label {
+    font-size: 0.9rem;
+    color: var(--text-muted);
+    margin-bottom: 8px;
+}
+
+.stat-value {
+    font-size: 2.5rem;
+    font-weight: 700;
+    color: var(--text-main);
+}
+
+.stat-box.highlight .stat-value {
+    color: var(--primary);
+}
+
+.stat-box.danger .stat-value {
+    color: var(--danger);
+}

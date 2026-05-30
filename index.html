@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>守護蛇蛇大作戰</title>
+    <link rel="stylesheet" href="index.css">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;700;900&family=Outfit:wght@400;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div id="ui-layer">
+        <div id="start-screen" class="screen active">
+            <h1>守護蛇蛇大作戰</h1>
+            <p>使用 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 或 <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> 移動</p>
+            <p>閃避車輛 🚗，尋找生態通道 🌿 增加保育分數！</p>
+            <div class="car-info">
+                <p>🌑 <strong>三寶車</strong>：沒開車燈、車速極快，橫衝直撞不長眼！</p>
+                <p>💡 <strong>友善車</strong>：有開黃色車燈、車速較慢，會努力轉向避開你。</p>
+            </div>
+            <button id="start-btn">開始遊戲</button>
+        </div>
+
+        <div id="hud" class="screen">
+            <div class="hud-item">
+                <span class="label">生命值</span>
+                <div id="health-bar-container">
+                    <div id="health-bar"></div>
+                </div>
+            </div>
+            <div class="hud-stats">
+                <div class="hud-item">
+                    <span class="label">存活時間</span>
+                    <span id="time-display" class="value">0s</span>
+                </div>
+                <div class="hud-item">
+                    <span class="label">保育分數</span>
+                    <span id="score-display" class="value">0</span>
+                </div>
+            </div>
+        </div>
+
+        <div id="game-over-screen" class="screen">
+            <h2>遊戲結束</h2>
+            <div class="stats-container">
+                <div class="stat-box">
+                    <span class="stat-label">存活時間</span>
+                    <span id="final-time" class="stat-value">0s</span>
+                </div>
+                <div class="stat-box highlight">
+                    <span class="stat-label">保育分數</span>
+                    <span id="final-score" class="stat-value">0</span>
+                </div>
+                <div class="stat-box danger">
+                    <span class="stat-label">路殺次數</span>
+                    <span id="final-hits" class="stat-value">0</span>
+                </div>
+            </div>
+            <button id="restart-btn">重新開始</button>
+        </div>
+    </div>
+    
+    <canvas id="gameCanvas"></canvas>
+
+    <script src="game.js"></script>
+</body>
+</html>
