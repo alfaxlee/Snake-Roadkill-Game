@@ -28,7 +28,7 @@ let score = 0;
 let hitCount = 0;
 const maxHealth = 3;
 let currentHealth = maxHealth;
-let currentMapType = 'crossroad'; // 'crossroad', 'straight_h', 'straight_v', 'roundabout'
+let currentMapType = 'crossroad'; // 'crossroad', 'straight_h', 'straight_v', 'roundabout', 'freeway', 'interchange_up'
 
 // Resize Canvas
 function resizeCanvas() {
@@ -91,6 +91,13 @@ class Player {
 
         let newX = this.x + dx * this.speed * dt;
         let newY = this.y + dy * this.speed * dt;
+
+        if (currentMapType === 'freeway' && dx < 0) {
+            GAME_STATE = 'GAME_OVER';
+            window.gameOverReason = 'ticket';
+            showGameOver();
+            return;
+        }
 
         if (!isPointInGrass(newX, this.y, this.radius)) {
             this.x = newX;
@@ -212,6 +219,54 @@ class Car {
         
         const cx = canvas.width / 2;
         const cy = canvas.height / 2;
+
+        if (currentMapType === 'freeway') {
+            const horizY = canvas.height / 2;
+            const halfRw = 250;
+            this.isHorizontal = true;
+            this.y = randomRange(horizY - halfRw + 50, horizY + halfRw - 50);
+            // All cars enter from the left, going right only
+            this.x = -this.width / 2;
+            this.vx = this.speed;
+            this.vy = 0;
+            this.angle = 0;
+            return;
+        }
+
+        if (currentMapType === 'interchange_down') {
+            const horizY_bot = canvas.height - 200;
+            const halfRw = 150;
+            this.isHorizontal = true;
+            this.y = randomRange(horizY_bot - halfRw + 50, horizY_bot + halfRw - 50);
+            if (Math.random() > 0.5) {
+                this.x = -this.width / 2;
+                this.vx = this.speed;
+            } else {
+                this.x = canvas.width + this.width / 2;
+                this.vx = -this.speed;
+            }
+            this.vy = 0;
+            this.angle = Math.atan2(this.vy, this.vx);
+            return;
+        }
+
+        if (currentMapType === 'interchange_up') {
+            const horizY = canvas.height - 200;
+            const halfRw = 150;
+            
+            this.isHorizontal = true;
+            this.y = randomRange(horizY - halfRw + 50, horizY + halfRw - 50);
+            if (Math.random() > 0.5) {
+                this.x = -this.width / 2;
+                this.vx = this.speed;
+            } else {
+                this.x = canvas.width + this.width / 2;
+                this.vx = -this.speed;
+            }
+            this.vy = 0;
+            this.angle = Math.atan2(this.vy, this.vx);
+            return;
+        }
 
         let spawnHorizontal = Math.random() > 0.5;
         if (currentMapType === 'straight_h') spawnHorizontal = true;
@@ -352,6 +407,47 @@ class Item {
         const cx = canvas.width / 2;
         const cy = canvas.height / 2;
         
+        if (currentMapType === 'interchange_up') {
+            const horizY = canvas.height - 200;
+            const halfRw = 150;
+            const arcCx = canvas.width / 2 - 150;
+            const R_out = 600;
+            const R_in = 300;
+            const C_x = arcCx + R_out;
+            const C_y = horizY - halfRw;
+
+            if (Math.random() > 0.5) {
+                this.x = randomRange(50, canvas.width - 50);
+                this.y = randomRange(horizY - halfRw + 40, horizY + halfRw - 40);
+            } else {
+                // spawn in curve
+                const angle = randomRange(Math.PI, Math.PI * 1.5);
+                const r = randomRange(R_in + 40, R_out - 40);
+                this.x = C_x + Math.cos(angle) * r;
+                this.y = C_y + Math.sin(angle) * r;
+            }
+            this.pulse = 0;
+            return;
+        }
+
+        if (currentMapType === 'freeway') {
+            const horizY = canvas.height / 2;
+            const halfRw = 250;
+            this.x = randomRange(50, canvas.width - 50);
+            this.y = randomRange(horizY - halfRw + 40, horizY + halfRw - 40);
+            this.pulse = 0;
+            return;
+        }
+
+        if (currentMapType === 'interchange_down') {
+            const horizY_bot = canvas.height - 200;
+            const halfRw = 150;
+            this.x = randomRange(50, canvas.width - 50);
+            this.y = randomRange(horizY_bot - halfRw + 40, horizY_bot + halfRw - 40);
+            this.pulse = 0;
+            return;
+        }
+
         let validArea = 'h';
         if (currentMapType === 'crossroad' || currentMapType === 'roundabout') {
             validArea = Math.random() > 0.5 ? 'h' : 'v';
@@ -368,6 +464,19 @@ class Item {
         } else {
             this.x = randomRange(cx - halfRwSpawn + 40, cx + halfRwSpawn - 40);
             this.y = randomRange(50, canvas.height - 50);
+        }
+        
+        // Retry until not in grass
+        let attempts = 0;
+        while (isPointInGrass(this.x, this.y, this.radius) && attempts < 50) {
+            if (validArea === 'h') {
+                this.x = randomRange(50, canvas.width - 50);
+                this.y = randomRange(cy - halfRwSpawn + 40, cy + halfRwSpawn - 40);
+            } else {
+                this.x = randomRange(cx - halfRwSpawn + 40, cx + halfRwSpawn - 40);
+                this.y = randomRange(50, canvas.height - 50);
+            }
+            attempts++;
         }
         
         this.pulse = 0;
@@ -406,6 +515,8 @@ function resetGame() {
     score = 0;
     hitCount = 0;
     currentHealth = maxHealth;
+    currentMapType = 'crossroad'; // Always start at crossroad
+    window.gameOverReason = 'crash'; // Reset reason
     
     player = new Player();
     cars = [];
@@ -425,13 +536,25 @@ function startGame() {
 }
 
 function endGame() {
-    GAME_STATE = 'GAMEOVER';
+    GAME_STATE = 'GAME_OVER';
+    showGameOver();
+}
+
+function showGameOver() {
+    GAME_STATE = 'GAME_OVER';
     hud.classList.remove('active');
     gameOverScreen.classList.add('active');
     
     finalTime.innerText = Math.floor(survivalTime) + 's';
     finalScore.innerText = score;
     finalHits.innerText = hitCount;
+
+    const title = document.querySelector('#game-over-screen h2');
+    if (window.gameOverReason === 'ticket') {
+        title.innerHTML = '📝 收到罰單！<br><span style="font-size:0.55em;color:#fca5a5;">高速公路嚴禁逆向行駛！</span>';
+    } else {
+        title.textContent = '遊戲結束';
+    }
 }
 
 function updateHUD() {
@@ -476,7 +599,44 @@ function isPointInGrass(x, y, radius) {
     const cx = canvas.width / 2;
     const cy = canvas.height / 2;
     
-    if (currentMapType === 'roundabout') {
+    if (currentMapType === 'freeway') {
+        const horizY = canvas.height / 2;
+        const halfRw = 250;
+        return Math.abs(y - horizY) > halfRw - radius;
+    } else if (currentMapType === 'interchange_down') {
+        const horizY_bot = canvas.height - 200;
+        const halfRw_bot = 150;
+        const C_x = 0;
+        const C_y = horizY_bot - halfRw_bot; // = canvas.height - 350, top of bottom road
+        const R_out = 400;
+        const R_in = 100;
+
+        // Bottom horizontal road (from C_y down)
+        const inH = (y >= C_y - radius) && (y <= horizY_bot + halfRw_bot + radius);
+        // Ramp: upper-right quadrant of (C_x=0, C_y)
+        const d = distance(x, y, C_x, C_y);
+        const inCurve = (x >= C_x - radius) && (y <= C_y + radius) &&
+                        (d >= R_in - radius) && (d <= R_out + radius);
+
+        return !(inH || inCurve);
+    } else if (currentMapType === 'interchange_up') {
+        const horizY = canvas.height - 200;
+        const halfRw = 150;
+        const C_x = canvas.width;
+        const C_y = horizY - halfRw; // Top edge of horizontal road = center of curve
+        const R_out = 400;
+        const R_in = 100;
+
+        // Horizontal road: from top edge (C_y) down to bottom
+        const inH = (y >= C_y - radius) && (y <= horizY + halfRw + radius);
+
+        // Ramp: quarter-circle annular sector in upper-left quadrant of (C_x, C_y)
+        const d = distance(x, y, C_x, C_y);
+        const inCurve = (x <= C_x + radius) && (y <= C_y + radius) &&
+                        (d >= R_in - radius) && (d <= R_out + radius);
+
+        return !(inH || inCurve);
+    } else if (currentMapType === 'roundabout') {
         const halfRw = 150;
         const R_in = 320;
         const R_out = 480;
@@ -591,6 +751,170 @@ function gameLoop(timestamp) {
 }
 
 function drawBackground(ctx) {
+    if (currentMapType === 'freeway') {
+        const horizY = canvas.height / 2;
+        const halfRw = 250;
+        ctx.fillStyle = '#38bdf8';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(0, horizY - halfRw, canvas.width, halfRw * 2);
+        
+        // White guard rails
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 12;
+        ctx.beginPath();
+        ctx.moveTo(0, horizY - halfRw); ctx.lineTo(canvas.width, horizY - halfRw);
+        ctx.moveTo(0, horizY + halfRw); ctx.lineTo(canvas.width, horizY + halfRw);
+        ctx.stroke();
+        
+        // Lane dividers (3 lanes)
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 5;
+        ctx.setLineDash([40, 30]);
+        ctx.beginPath();
+        const laneH = (halfRw * 2) / 3;
+        ctx.moveTo(0, horizY - halfRw + laneH); ctx.lineTo(canvas.width, horizY - halfRw + laneH);
+        ctx.moveTo(0, horizY - halfRw + laneH * 2); ctx.lineTo(canvas.width, horizY - halfRw + laneH * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+        return;
+    }
+
+    // Interchange Down Visuals (left-right mirror of interchange_up)
+    if (currentMapType === 'interchange_down') {
+        const horizY_bot = canvas.height - 200;
+        const halfRw = 150;
+        const C_x = 0;
+        const C_y = horizY_bot - halfRw; // Top edge of bottom road = center of curve
+        const R_out = 400;
+        const R_in = 100;
+
+        ctx.fillStyle = '#166534';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+        // Road fill
+        ctx.fillStyle = '#1e293b';
+        // Bottom horizontal road
+        ctx.fillRect(0, horizY_bot - halfRw, canvas.width, halfRw * 2);
+        // Quarter-circle annular sector (upper-right quadrant of C_x=0, C_y)
+        ctx.beginPath();
+        ctx.arc(C_x, C_y, R_out, -Math.PI / 2, 0, false); // from top to right
+        ctx.arc(C_x, C_y, R_in, 0, -Math.PI / 2, true);  // back
+        ctx.closePath();
+        ctx.fill();
+
+        // Borders
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 10;
+        // Outer arc (ramp outer edge)
+        ctx.beginPath();
+        ctx.arc(C_x, C_y, R_out, -Math.PI / 2, 0, false);
+        ctx.stroke();
+        // Outer arc right end → right edge of canvas top of bottom road
+        ctx.beginPath();
+        ctx.moveTo(R_out, C_y);
+        ctx.lineTo(canvas.width, C_y);
+        ctx.stroke();
+        // Inner arc (ramp inner wall)
+        ctx.beginPath();
+        ctx.arc(C_x, C_y, R_in, -Math.PI / 2, 0, false);
+        ctx.stroke();
+        // Inner arc right end → right edge
+        ctx.beginPath();
+        ctx.moveTo(R_in, C_y);
+        ctx.lineTo(canvas.width, C_y);
+        ctx.stroke();
+        // Bottom road bottom edge
+        ctx.beginPath();
+        ctx.moveTo(0, horizY_bot + halfRw);
+        ctx.lineTo(canvas.width, horizY_bot + halfRw);
+        ctx.stroke();
+
+        // Dashed center lines
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 6;
+        ctx.setLineDash([30, 30]);
+        ctx.beginPath();
+        ctx.moveTo(0, horizY_bot);
+        ctx.lineTo(canvas.width, horizY_bot);
+        const R_mid = R_in + 150;
+        ctx.arc(C_x, C_y, R_mid, -Math.PI / 2, 0, false);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Text label
+        ctx.fillStyle = '#fef08a';
+        ctx.font = 'bold 54px "Noto Sans TC"';
+        ctx.textAlign = 'center';
+        ctx.fillText('高 速 公 路', canvas.width - 200, C_y - 200);
+
+        return;
+    }
+
+    // Interchange Up Visuals
+    if (currentMapType === 'interchange_up') {
+        const horizY = canvas.height - 200;
+        const halfRw = 150;
+        const C_x = canvas.width;
+        const C_y = horizY - halfRw;
+        const R_out = 400;
+        const R_in = 100;
+
+        ctx.fillStyle = '#166534';
+        ctx.fillRect(0, 0, canvas.width, canvas.height);
+        
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(0, horizY - halfRw, canvas.width, halfRw * 2);
+        
+        ctx.beginPath();
+        ctx.arc(C_x, C_y, R_out, Math.PI, Math.PI * 1.5, false);
+        ctx.arc(C_x, C_y, R_in, Math.PI * 1.5, Math.PI, true);
+        ctx.closePath();
+        ctx.fill();
+
+        ctx.strokeStyle = '#94a3b8';
+        ctx.lineWidth = 10;
+        ctx.beginPath();
+        ctx.moveTo(0, horizY - halfRw);
+        ctx.lineTo(C_x - R_out, horizY - halfRw);
+        ctx.arc(C_x, C_y, R_out, Math.PI, Math.PI * 1.5, false);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(C_x - R_in, horizY - halfRw);
+        ctx.lineTo(canvas.width, horizY - halfRw);
+        ctx.moveTo(C_x - R_in, horizY - halfRw);
+        ctx.arc(C_x, C_y, R_in, Math.PI, Math.PI * 1.5, false);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(0, horizY + halfRw);
+        ctx.lineTo(canvas.width, horizY + halfRw);
+        ctx.stroke();
+
+        // Dashed lines
+        ctx.strokeStyle = '#e2e8f0';
+        ctx.lineWidth = 6;
+        ctx.setLineDash([30, 30]);
+        ctx.beginPath();
+        ctx.moveTo(0, horizY);
+        ctx.lineTo(canvas.width, horizY);
+        
+        const R_mid = R_in + 150;
+        ctx.arc(C_x, C_y, R_mid, Math.PI, Math.PI * 1.5, false);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // Text
+        ctx.fillStyle = '#fef08a';
+        ctx.font = 'bold 60px "Noto Sans TC"';
+        ctx.textAlign = 'center';
+        ctx.fillText('高 速 公 路', C_x - 350, C_y - 250);
+        
+        return; 
+    }
+
     const rw = 600; 
     const halfRw = rw / 2;
     const cx = canvas.width / 2;
@@ -715,26 +1039,77 @@ function transitionMap(exitDir) {
     items = [];
     player.history = []; // Reset tail to avoid line across screen
     
-    const rand = Math.random();
-    if (rand < 0.25) {
-        currentMapType = 'roundabout';
-    } else {
-        if (exitDir === 'left' || exitDir === 'right') {
-            currentMapType = Math.random() > 0.5 ? 'crossroad' : 'straight_h';
+    let validMaps = [];
+    if (currentMapType === 'freeway') {
+        // 75% stay on freeway, 25% enter downward interchange
+        if (Math.random() < 0.25) {
+            validMaps = ['interchange_down'];
         } else {
-            currentMapType = Math.random() > 0.5 ? 'crossroad' : 'straight_v';
+            validMaps = ['freeway'];
         }
+    } else if (currentMapType === 'interchange_down') {
+        const horizY_bot = canvas.height - 200;
+        const halfRw_bot = 150;
+        // Only left/right exits from the bottom road return to normal maps
+        if (player.y >= horizY_bot - halfRw_bot - 50) {
+            validMaps = ['crossroad', 'straight_h', 'roundabout'];
+        } else {
+            validMaps = ['freeway']; // ramp exits back to freeway
+        }
+    } else if (currentMapType === 'interchange_up' && exitDir === 'right') {
+        const horizY = canvas.height - 200;
+        const halfRw = 150;
+        const C_y = horizY - halfRw; // Top edge of horizontal road
+        // Player exited via the ramp (above the horizontal road top edge)
+        // Note: player.x is already set to 0 when transitionMap is called,
+        // but player.y still reflects where they exited
+        if (player.y <= C_y + 30) {
+            validMaps = ['freeway'];
+        } else {
+            validMaps = ['crossroad', 'straight_h'];
+        }
+    } else if (exitDir === 'left' || exitDir === 'right') {
+        validMaps = ['crossroad', 'straight_h', 'roundabout', 'interchange_up'];
+    } else if (exitDir === 'up') {
+        validMaps = ['crossroad', 'straight_v', 'roundabout'];
+    } else if (exitDir === 'down') {
+        validMaps = ['crossroad', 'straight_v', 'roundabout'];
     }
 
-    const rwForNewMap = currentMapType === 'roundabout' ? 300 : 600;
-    const halfRw = rwForNewMap / 2;
-    const cx = canvas.width / 2;
-    const cy = canvas.height / 2;
+    currentMapType = validMaps[Math.floor(Math.random() * validMaps.length)];
 
-    if (exitDir === 'left' || exitDir === 'right') {
-        player.y = Math.max(cy - halfRw + player.radius, Math.min(cy + halfRw - player.radius, player.y));
+    if (currentMapType === 'freeway') {
+        const horizY = canvas.height / 2;
+        const halfRw = 250;
+        player.y = Math.max(horizY - halfRw + player.radius, Math.min(horizY + halfRw - player.radius, player.y));
+        player.x = player.radius; // Enter from left side
+    } else if (currentMapType === 'interchange_down') {
+        // Clamp player to ramp entry on left edge (upper-right quadrant zone)
+        const horizY_bot = canvas.height - 200;
+        const halfRw_bot = 150;
+        const C_y = horizY_bot - halfRw_bot; // = canvas.height - 350
+        const R_in = 100;
+        const R_out = 400;
+        // Ramp left-edge y range: C_y - R_out to C_y - R_in
+        player.x = player.radius;
+        player.y = Math.max(C_y - R_out + player.radius, Math.min(C_y - R_in - player.radius, player.y));
+    } else if (currentMapType === 'interchange_up') {
+        const horizY = canvas.height - 200;
+        const halfRw = 150;
+        if (exitDir === 'left' || exitDir === 'right') {
+            player.y = Math.max(horizY - halfRw + player.radius, Math.min(horizY + halfRw - player.radius, player.y));
+        }
     } else {
-        player.x = Math.max(cx - halfRw + player.radius, Math.min(cx + halfRw - player.radius, player.x));
+        const rwForNewMap = currentMapType === 'roundabout' ? 300 : 600;
+        const halfRw = rwForNewMap / 2;
+        const cx = canvas.width / 2;
+        const cy = canvas.height / 2;
+
+        if (exitDir === 'left' || exitDir === 'right') {
+            player.y = Math.max(cy - halfRw + player.radius, Math.min(cy + halfRw - player.radius, player.y));
+        } else {
+            player.x = Math.max(cx - halfRw + player.radius, Math.min(cx + halfRw - player.radius, player.x));
+        }
     }
 }
 
