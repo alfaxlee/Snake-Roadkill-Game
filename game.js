@@ -213,7 +213,7 @@ class Player {
 
 class Car {
     constructor() {
-        this.type = Math.random() > 0.5 ? 'fast_blind' : 'slow_aware';
+        this.type = Math.random() < (1/3) ? 'fast_blind' : 'slow_aware';
         const isHorizontal = Math.random() > 0.5;
         let speedBase = 250; // Constant speed, no longer increases over time
         
