@@ -10,14 +10,52 @@
 <body>
     <div id="ui-layer">
         <div id="start-screen" class="screen active">
-            <h1>守護蛇蛇大作戰</h1>
-            <p>使用 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 或 <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> 移動</p>
-            <p>閃避車輛 🚗，尋找生態通道 🌿 增加保育分數！</p>
-            <div class="car-info">
-                <p>🌑 <strong>三寶車</strong>：沒開車燈、車速極快，橫衝直撞不長眼！</p>
-                <p>💡 <strong>友善車</strong>：有開黃色車燈、車速較慢，會努力轉向避開你。</p>
+            <div class="intro-container">
+                <h1>守護蛇蛇大作戰</h1>
+                <p>閃避路殺危機，共創生態友善通道！</p>
+                
+                <div class="intro-grid">
+                    <!-- 左欄：基本生存法則 -->
+                    <div class="intro-card">
+                        <h3>🌱 綠色生存法則</h3>
+                        <p class="intro-item">
+                            <span class="rule-badge success">操作</span>
+                            使用 <kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> 或 <kbd>↑</kbd><kbd>↓</kbd><kbd>←</kbd><kbd>→</kbd> 移動。
+                        </p>
+                        <p class="intro-item">
+                            <span class="rule-badge success">避難</span>
+                            路上有兩類車輛：
+                            <br>• 🚗 <strong>三寶車</strong>：無車燈、速度極快、橫衝直撞！
+                            <br>• 💡 <strong>友善車</strong>：開黃色燈、速度較慢，會主動減速轉向避開你。
+                        </p>
+                        <p class="intro-item">
+                            <span class="rule-badge success">保育</span>
+                            尋找 <strong>生態通道 🌿</strong> 增加保育分數！
+                            <br><span style="color: #fbbf24; font-size: 0.9em; font-weight: 700;">※ 注意：生態通道只會出現在「道路」上，草地是不會生成的喔！</span>
+                        </p>
+                    </div>
+
+                    <!-- 右欄：高速公路擴充說明 -->
+                    <div class="intro-card danger-zone">
+                        <h3 class="danger-title">🛣️ 挑戰高速公路</h3>
+                        <p class="intro-item">
+                            <span class="rule-badge alert">進入</span>
+                            行經普通路段時，可尋找<strong>向上交流道（橘色引道）</strong>，駛入極速的「高速公路」地形！
+                        </p>
+                        <p class="intro-item">
+                            <span class="rule-badge alert">單向</span>
+                            高速公路上所有車輛統一<strong>由左向右</strong>極速行駛。
+                            <br><span class="warning-text">⚠️ 絕對嚴禁向左逆行！</span> 在高速公路上<strong>往左移動</strong>，將立刻被開立罰單並直接結束遊戲！
+                        </p>
+                        <p class="intro-item">
+                            <span class="rule-badge alert">離開</span>
+                            在高速公路後半段，尋找<strong>向下交流道（引道）</strong>駛離，即可安全重返一般平地地形。
+                        </p>
+                    </div>
+                </div>
+
+                <button id="start-btn">開始遊戲</button>
             </div>
-            <button id="start-btn">開始遊戲</button>
         </div>
 
         <div id="hud" class="screen">

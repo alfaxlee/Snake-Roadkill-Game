@@ -32,8 +32,13 @@ let currentMapType = 'crossroad'; // 'crossroad', 'straight_h', 'straight_v', 'r
 
 // Resize Canvas
 function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    // Keep internal logic resolution consistent by scaling so the shortest side is always 1080
+    const baseMin = 1080;
+    const minDim = Math.min(window.innerWidth, window.innerHeight);
+    const scale = baseMin / minDim;
+    
+    canvas.width = window.innerWidth * scale;
+    canvas.height = window.innerHeight * scale;
 }
 window.addEventListener('resize', resizeCanvas);
 resizeCanvas();
@@ -89,8 +94,13 @@ class Player {
             dy /= length;
         }
 
-        let newX = this.x + dx * this.speed * dt;
-        let newY = this.y + dy * this.speed * dt;
+        let currentSpeed = this.speed;
+        if (currentMapType === 'freeway') {
+            currentSpeed *= 1.5;
+        }
+
+        let newX = this.x + dx * currentSpeed * dt;
+        let newY = this.y + dy * currentSpeed * dt;
 
         if (currentMapType === 'freeway' && dx < 0) {
             GAME_STATE = 'GAME_OVER';
@@ -121,17 +131,21 @@ class Player {
             transitionMap('down');
         }
 
-        // Save history for tail ONLY if moved enough
+        // Save history for tail based on intended movement
         if (this.history.length === 0) {
             this.history.unshift({x: this.x, y: this.y});
-        } else {
-            const last = this.history[0];
-            const dist = distance(this.x, this.y, last.x, last.y);
-            if (dist >= this.segmentDist) {
+        }
+        
+        let isMoving = (dx !== 0 || dy !== 0);
+        if (isMoving) {
+            let moveDist = currentSpeed * dt;
+            this.distanceAccumulator = (this.distanceAccumulator || 0) + moveDist;
+            while (this.distanceAccumulator >= this.segmentDist) {
                 this.history.unshift({x: this.x, y: this.y});
                 if (this.history.length > this.tailLength) {
                     this.history.pop();
                 }
+                this.distanceAccumulator -= this.segmentDist;
             }
         }
 
@@ -201,7 +215,7 @@ class Car {
     constructor() {
         this.type = Math.random() > 0.5 ? 'fast_blind' : 'slow_aware';
         const isHorizontal = Math.random() > 0.5;
-        let speedBase = 200 + (survivalTime * 5); // Speed increases over time
+        let speedBase = 250; // Constant speed, no longer increases over time
         
         if (this.type === 'fast_blind') {
             speedBase *= 1.5;
@@ -212,6 +226,10 @@ class Car {
         }
         
         this.speed = randomRange(speedBase * 0.8, speedBase * 1.5);
+        if (currentMapType === 'freeway') {
+            this.speed *= 1.5;
+        }
+
         this.isHorizontal = isHorizontal;
         
         this.width = 90;
@@ -404,82 +422,20 @@ class Car {
 class Item {
     constructor() {
         this.radius = 18;
-        const cx = canvas.width / 2;
-        const cy = canvas.height / 2;
-        
-        if (currentMapType === 'interchange_up') {
-            const horizY = canvas.height - 200;
-            const halfRw = 150;
-            const arcCx = canvas.width / 2 - 150;
-            const R_out = 600;
-            const R_in = 300;
-            const C_x = arcCx + R_out;
-            const C_y = horizY - halfRw;
-
-            if (Math.random() > 0.5) {
-                this.x = randomRange(50, canvas.width - 50);
-                this.y = randomRange(horizY - halfRw + 40, horizY + halfRw - 40);
-            } else {
-                // spawn in curve
-                const angle = randomRange(Math.PI, Math.PI * 1.5);
-                const r = randomRange(R_in + 40, R_out - 40);
-                this.x = C_x + Math.cos(angle) * r;
-                this.y = C_y + Math.sin(angle) * r;
-            }
-            this.pulse = 0;
-            return;
-        }
-
-        if (currentMapType === 'freeway') {
-            const horizY = canvas.height / 2;
-            const halfRw = 250;
-            this.x = randomRange(50, canvas.width - 50);
-            this.y = randomRange(horizY - halfRw + 40, horizY + halfRw - 40);
-            this.pulse = 0;
-            return;
-        }
-
-        if (currentMapType === 'interchange_down') {
-            const horizY_bot = canvas.height - 200;
-            const halfRw = 150;
-            this.x = randomRange(50, canvas.width - 50);
-            this.y = randomRange(horizY_bot - halfRw + 40, horizY_bot + halfRw - 40);
-            this.pulse = 0;
-            return;
-        }
-
-        let validArea = 'h';
-        if (currentMapType === 'crossroad' || currentMapType === 'roundabout') {
-            validArea = Math.random() > 0.5 ? 'h' : 'v';
-        } else if (currentMapType === 'straight_v') {
-            validArea = 'v';
-        }
-
-        let rwSpawn = currentMapType === 'roundabout' ? 300 : 600;
-        let halfRwSpawn = rwSpawn / 2;
-
-        if (validArea === 'h') {
-            this.x = randomRange(50, canvas.width - 50);
-            this.y = randomRange(cy - halfRwSpawn + 40, cy + halfRwSpawn - 40);
-        } else {
-            this.x = randomRange(cx - halfRwSpawn + 40, cx + halfRwSpawn - 40);
-            this.y = randomRange(50, canvas.height - 50);
-        }
-        
-        // Retry until not in grass
-        let attempts = 0;
-        while (isPointInGrass(this.x, this.y, this.radius) && attempts < 50) {
-            if (validArea === 'h') {
-                this.x = randomRange(50, canvas.width - 50);
-                this.y = randomRange(cy - halfRwSpawn + 40, cy + halfRwSpawn - 40);
-            } else {
-                this.x = randomRange(cx - halfRwSpawn + 40, cx + halfRwSpawn - 40);
-                this.y = randomRange(50, canvas.height - 50);
-            }
-            attempts++;
-        }
-        
         this.pulse = 0;
+        
+        let attempts = 0;
+        do {
+            this.x = randomRange(50, canvas.width - 50);
+            this.y = randomRange(50, canvas.height - 50);
+            attempts++;
+        } while (isPointInGrass(this.x, this.y, this.radius) && attempts < 200);
+        
+        // Failsafe in case a valid spot couldn't be found
+        if (attempts >= 200) {
+            this.x = canvas.width / 2;
+            this.y = canvas.height / 2;
+        }
     }
 
     update(dt) {
@@ -607,33 +563,32 @@ function isPointInGrass(x, y, radius) {
         const horizY_bot = canvas.height - 200;
         const halfRw_bot = 150;
         const C_x = 0;
-        const C_y = horizY_bot - halfRw_bot; // = canvas.height - 350, top of bottom road
+        const C_y = horizY_bot - halfRw_bot;
         const R_out = 400;
         const R_in = 100;
 
-        // Bottom horizontal road (from C_y down)
-        const inH = (y >= C_y - radius) && (y <= horizY_bot + halfRw_bot + radius);
-        // Ramp: upper-right quadrant of (C_x=0, C_y)
+        // Bottom horizontal road: correct wall clearance
+        const inH = Math.abs(y - horizY_bot) <= halfRw_bot - radius;
+        // Ramp: upper-right quadrant of (0, C_y), correct wall clearance, y extends slightly for junction
         const d = distance(x, y, C_x, C_y);
-        const inCurve = (x >= C_x - radius) && (y <= C_y + radius) &&
-                        (d >= R_in - radius) && (d <= R_out + radius);
+        const inCurve = (x >= -radius) && (y <= C_y + radius) &&
+                        (d >= R_in + radius) && (d <= R_out - radius);
 
         return !(inH || inCurve);
     } else if (currentMapType === 'interchange_up') {
         const horizY = canvas.height - 200;
         const halfRw = 150;
         const C_x = canvas.width;
-        const C_y = horizY - halfRw; // Top edge of horizontal road = center of curve
+        const C_y = horizY - halfRw;
         const R_out = 400;
         const R_in = 100;
 
-        // Horizontal road: from top edge (C_y) down to bottom
-        const inH = (y >= C_y - radius) && (y <= horizY + halfRw + radius);
-
-        // Ramp: quarter-circle annular sector in upper-left quadrant of (C_x, C_y)
+        // Horizontal road: correct wall clearance
+        const inH = Math.abs(y - horizY) <= halfRw - radius;
+        // Ramp: upper-left quadrant of (canvas.width, C_y), y extends slightly for junction
         const d = distance(x, y, C_x, C_y);
         const inCurve = (x <= C_x + radius) && (y <= C_y + radius) &&
-                        (d >= R_in - radius) && (d <= R_out + radius);
+                        (d >= R_in + radius) && (d <= R_out - radius);
 
         return !(inH || inCurve);
     } else if (currentMapType === 'roundabout') {
@@ -674,8 +629,8 @@ function gameLoop(timestamp) {
 
     // Spawn Cars
     carSpawnTimer += dt;
-    // Spawn rate increases over time
-    let spawnRate = Math.max(0.3, 1.5 - (survivalTime * 0.02)); 
+    // Constant spawn rate
+    let spawnRate = 1.0; 
     if (currentMapType === 'roundabout') spawnRate *= 0.5; // High traffic
     if (carSpawnTimer >= spawnRate) {
         carSpawnTimer = 0;
@@ -820,10 +775,10 @@ function drawBackground(ctx) {
         ctx.beginPath();
         ctx.arc(C_x, C_y, R_in, -Math.PI / 2, 0, false);
         ctx.stroke();
-        // Inner arc right end → right edge
+        // Left side of top edge (from 0 to R_in)
         ctx.beginPath();
-        ctx.moveTo(R_in, C_y);
-        ctx.lineTo(canvas.width, C_y);
+        ctx.moveTo(0, C_y);
+        ctx.lineTo(R_in, C_y);
         ctx.stroke();
         // Bottom road bottom edge
         ctx.beginPath();
@@ -835,10 +790,15 @@ function drawBackground(ctx) {
         ctx.strokeStyle = '#e2e8f0';
         ctx.lineWidth = 6;
         ctx.setLineDash([30, 30]);
+        // Bottom road center line (separate draw to avoid stray connecting line)
         ctx.beginPath();
         ctx.moveTo(0, horizY_bot);
         ctx.lineTo(canvas.width, horizY_bot);
+        ctx.stroke();
+        // Arc center line (explicit moveTo to avoid diagonal ghost line)
         const R_mid = R_in + 150;
+        ctx.beginPath();
+        ctx.moveTo(C_x, C_y - R_mid); // arc start: top of center arc
         ctx.arc(C_x, C_y, R_mid, -Math.PI / 2, 0, false);
         ctx.stroke();
         ctx.setLineDash([]);
@@ -900,8 +860,11 @@ function drawBackground(ctx) {
         ctx.beginPath();
         ctx.moveTo(0, horizY);
         ctx.lineTo(canvas.width, horizY);
+        ctx.stroke();
         
         const R_mid = R_in + 150;
+        ctx.beginPath();
+        ctx.moveTo(C_x - R_mid, C_y); // Start of the arc at Math.PI
         ctx.arc(C_x, C_y, R_mid, Math.PI, Math.PI * 1.5, false);
         ctx.stroke();
         ctx.setLineDash([]);
@@ -1041,8 +1004,8 @@ function transitionMap(exitDir) {
     
     let validMaps = [];
     if (currentMapType === 'freeway') {
-        // 75% stay on freeway, 25% enter downward interchange
-        if (Math.random() < 0.25) {
+        // 50% stay on freeway, 50% enter downward interchange
+        if (Math.random() < 0.5) {
             validMaps = ['interchange_down'];
         } else {
             validMaps = ['freeway'];
