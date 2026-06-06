@@ -573,6 +573,7 @@ function showGameOver() {
     // Reset leaderboard submission UI
     isScoreSubmitted = false;
     submitScoreBtn.disabled = false;
+    playerNameInput.value = '';
     if (submitMessage) submitMessage.textContent = '';
     
     if (scoreSubmitContainer) scoreSubmitContainer.style.display = 'block';
@@ -1162,7 +1163,7 @@ function transitionMap(exitDir) {
             player.y = Math.max(horizY - halfRw + player.radius, Math.min(horizY + halfRw - player.radius, player.y));
         }
     } else {
-        const rwForNewMap = currentMapType === 'roundabout' ? 300 : 600;
+        const rwForNewMap = (currentMapType === 'roundabout' || currentMapType === 'hotspot_jinlong') ? 300 : 600;
         const halfRw = rwForNewMap / 2;
         const cx = canvas.width / 2;
         const cy = canvas.height / 2;
