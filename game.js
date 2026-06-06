@@ -575,11 +575,7 @@ function showGameOver() {
     submitScoreBtn.disabled = false;
     if (submitMessage) submitMessage.textContent = '';
     
-    if (score > 0) {
-        if (scoreSubmitContainer) scoreSubmitContainer.style.display = 'block';
-    } else {
-        if (scoreSubmitContainer) scoreSubmitContainer.style.display = 'none';
-    }
+    if (scoreSubmitContainer) scoreSubmitContainer.style.display = 'block';
 }
 
 function updateHUD() {
@@ -1216,7 +1212,7 @@ async function fetchLeaderboard() {
     try {
         const snapshot = await db.collection('scores')
             .orderBy('score', 'desc')
-            .limit(50)
+            .limit(200)
             .get();
 
         if (snapshot.empty) {
@@ -1229,7 +1225,7 @@ async function fetchLeaderboard() {
             const da = a.data(), db2 = b.data();
             if (db2.score !== da.score) return db2.score - da.score;
             return (db2.survivalTime || 0) - (da.survivalTime || 0);
-        }).slice(0, 10);
+        }).slice(0, 200);
 
         leaderboardBody.innerHTML = '';
         sorted.forEach((doc, i) => {
@@ -1270,7 +1266,8 @@ async function submitScore() {
     submitMessage.className = 'submit-message';
 
     try {
-        await db.collection('scores').add({
+        const docId = `${name}_${Date.now()}`;
+        await db.collection('scores').doc(docId).set({
             name: name,
             score: score,
             survivalTime: survivalTime,

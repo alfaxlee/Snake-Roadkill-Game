@@ -148,6 +148,7 @@ h1 {
     margin-bottom: 1rem;
     background: linear-gradient(to right, #4ade80, #3b82f6);
     -webkit-background-clip: text;
+    background-clip: text;
     -webkit-text-fill-color: transparent;
     text-shadow: 0 10px 30px rgba(74, 222, 128, 0.3);
 }
