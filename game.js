@@ -213,16 +213,41 @@ class Player {
 
 class Car {
     constructor() {
-        this.type = Math.random() < (1/3) ? 'fast_blind' : 'slow_aware';
+        let isNeihu = currentMapType === 'hotspot_neihu';
+        let isJinlong = currentMapType === 'hotspot_jinlong';
+        let isHotspot = isNeihu || isJinlong;
+        const randType = Math.random();
+        
+        if (isHotspot) {
+            if (randType < 0.1) this.type = 'slow_aware';
+            else if (randType < 0.55) this.type = 'drunk';
+            else this.type = 'fast_blind';
+        } else {
+            if (randType < 0.2) {
+                this.type = 'drunk';
+            } else if (randType < 0.2 + (0.8 / 3)) {
+                this.type = 'fast_blind';
+            } else {
+                this.type = 'slow_aware';
+            }
+        }
+
         const isHorizontal = Math.random() > 0.5;
         let speedBase = 250; // Constant speed, no longer increases over time
         
-        if (this.type === 'fast_blind') {
+        if (this.type === 'drunk') {
+            speedBase *= 0.8;
+            this.color = '#d946ef'; // Fuchsia
+        } else if (this.type === 'fast_blind') {
             speedBase *= 1.5;
             this.color = '#334155'; // Dark color for fast cars
         } else {
             speedBase *= 0.6;
             this.color = ['#ef4444', '#f59e0b', '#3b82f6', '#8b5cf6'][Math.floor(Math.random() * 4)];
+        }
+        
+        if (isNeihu) {
+            speedBase *= 1.5; // Cars are 1.5x faster in neihu hotspot
         }
         
         this.speed = randomRange(speedBase * 0.8, speedBase * 1.5);
@@ -287,10 +312,11 @@ class Car {
         }
 
         let spawnHorizontal = Math.random() > 0.5;
-        if (currentMapType === 'straight_h') spawnHorizontal = true;
+        if (currentMapType === 'straight_h' || currentMapType === 'hotspot_neihu' || currentMapType === 'hotspot_jinlong' || currentMapType === 'mountain') spawnHorizontal = true;
         if (currentMapType === 'straight_v') spawnHorizontal = false;
 
-        const rwForSpawning = currentMapType === 'roundabout' ? 300 : 600;
+        let rwForSpawning = currentMapType === 'roundabout' ? 300 : 600;
+        if (currentMapType === 'hotspot_jinlong') rwForSpawning = 300;
         const halfRwSpawn = rwForSpawning / 2;
 
         this.isHorizontal = spawnHorizontal;
@@ -316,6 +342,9 @@ class Car {
             this.vx = 0;
         }
         this.angle = Math.atan2(this.vy, this.vx);
+        this.heading = this.angle;
+        this.currentScalarSpeed = this.speed;
+        this.drunkTimer = 0;
     }
 
     getClosestPlayerPoint(player) {
@@ -333,7 +362,32 @@ class Car {
     }
 
     update(dt, player) {
-        if (this.type === 'slow_aware' && player) {
+        if (this.type === 'drunk') {
+            this.drunkTimer -= dt;
+            if (this.drunkTimer <= 0) {
+                this.drunkTimer = randomRange(0.3, 1.5);
+                this.targetHeading = this.heading + randomRange(-Math.PI, Math.PI); // random turn
+                
+                // 25% chance to floor the gas pedal and burst forward
+                if (Math.random() < 0.25) {
+                    this.targetSpeed = this.speed * randomRange(3.0, 4.5);
+                } else {
+                    // 75% chance for erratic normal speeds, including backward
+                    this.targetSpeed = randomRange(-this.speed * 1.0, this.speed * 1.5);
+                }
+            }
+            
+            if (this.targetHeading !== undefined) {
+                const diff = this.targetHeading - this.heading;
+                this.heading += diff * 3 * dt; // turn gradually but faster than before
+            }
+            if (this.targetSpeed !== undefined) {
+                this.currentScalarSpeed += (this.targetSpeed - this.currentScalarSpeed) * 3 * dt; // accelerate/decelerate faster
+            }
+
+            this.vx = Math.cos(this.heading) * this.currentScalarSpeed;
+            this.vy = Math.sin(this.heading) * this.currentScalarSpeed;
+        } else if (this.type === 'slow_aware' && player) {
             const closest = this.getClosestPlayerPoint(player);
             if (closest.dist < 400) { 
                 const intensity = Math.pow((400 - closest.dist) / 400, 2); 
@@ -373,8 +427,12 @@ class Car {
             this.vy = 0;
         }
 
-        if (this.vx !== 0 || this.vy !== 0) {
-            this.angle = Math.atan2(this.vy, this.vx);
+        if (this.type === 'drunk') {
+            this.angle = this.heading;
+        } else {
+            if (this.vx !== 0 || this.vy !== 0) {
+                this.angle = Math.atan2(this.vy, this.vx);
+            }
         }
     }
 
@@ -511,6 +569,17 @@ function showGameOver() {
     } else {
         title.textContent = '遊戲結束';
     }
+
+    // Reset leaderboard submission UI
+    isScoreSubmitted = false;
+    submitScoreBtn.disabled = false;
+    if (submitMessage) submitMessage.textContent = '';
+    
+    if (score > 0) {
+        if (scoreSubmitContainer) scoreSubmitContainer.style.display = 'block';
+    } else {
+        if (scoreSubmitContainer) scoreSubmitContainer.style.display = 'none';
+    }
 }
 
 function updateHUD() {
@@ -603,11 +672,11 @@ function isPointInGrass(x, y, radius) {
         
         return !(inH || inV || inRing);
     } else {
-        const halfRw = 300;
+        const halfRw = currentMapType === 'hotspot_jinlong' ? 150 : 300;
         let inH = Math.abs(y - cy) <= halfRw - radius;
         let inV = Math.abs(x - cx) <= halfRw - radius;
         
-        if (currentMapType === 'straight_h') inV = false;
+        if (currentMapType === 'straight_h' || currentMapType === 'hotspot_neihu' || currentMapType === 'hotspot_jinlong' || currentMapType === 'mountain') inV = false;
         if (currentMapType === 'straight_v') inH = false;
         
         return !(inH || inV);
@@ -699,6 +768,20 @@ function gameLoop(timestamp) {
     items.forEach(item => item.draw(ctx));
     player.draw(ctx);
     cars.forEach(car => car.draw(ctx));
+
+    // Dark overlay for mountain map
+    if (currentMapType === 'mountain') {
+        ctx.save();
+        ctx.fillStyle = '#000000';
+        ctx.beginPath();
+        // Draw the full screen rectangle
+        ctx.rect(0, 0, canvas.width, canvas.height);
+        // Draw a counter-clockwise circle to create a cutout hole
+        const lightRadius = 250; 
+        ctx.arc(player.x, player.y, lightRadius, 0, Math.PI * 2, true);
+        ctx.fill();
+        ctx.restore();
+    }
 
     if (GAME_STATE === 'PLAYING') {
         animationId = requestAnimationFrame(gameLoop);
@@ -878,7 +961,7 @@ function drawBackground(ctx) {
         return; 
     }
 
-    const rw = 600; 
+    const rw = currentMapType === 'hotspot_jinlong' ? 300 : 600; 
     const halfRw = rw / 2;
     const cx = canvas.width / 2;
     const cy = canvas.height / 2;
@@ -892,7 +975,7 @@ function drawBackground(ctx) {
     if (currentMapType !== 'straight_v') {
         ctx.fillRect(0, cy - halfRw, canvas.width, rw);
     }
-    if (currentMapType !== 'straight_h') {
+    if (currentMapType !== 'straight_h' && !currentMapType.startsWith('hotspot_') && currentMapType !== 'mountain') {
         ctx.fillRect(cx - halfRw, 0, rw, canvas.height);
     }
 
@@ -912,7 +995,7 @@ function drawBackground(ctx) {
         
         ctx.fillRect(cx + halfRw, cy + halfRw, canvas.width - cx - halfRw, wallThick);
         ctx.fillRect(cx + halfRw, cy + halfRw, wallThick, canvas.height - cy - halfRw);
-    } else if (currentMapType === 'straight_h') {
+    } else if (currentMapType === 'straight_h' || currentMapType.startsWith('hotspot_') || currentMapType === 'mountain') {
         ctx.fillRect(0, cy - halfRw - wallThick, canvas.width, wallThick);
         ctx.fillRect(0, cy + halfRw, canvas.width, wallThick);
     } else if (currentMapType === 'straight_v') {
@@ -974,7 +1057,7 @@ function drawBackground(ctx) {
     ctx.setLineDash([30, 30]);
     ctx.beginPath();
     
-    if (currentMapType === 'straight_h' || currentMapType === 'crossroad' || currentMapType === 'roundabout') {
+    if (currentMapType === 'straight_h' || currentMapType.startsWith('hotspot_') || currentMapType === 'mountain' || currentMapType === 'crossroad' || currentMapType === 'roundabout') {
         ctx.moveTo(0, cy); ctx.lineTo((currentMapType === 'crossroad' || currentMapType === 'roundabout') ? cx - halfRw : canvas.width, cy);
         if (currentMapType === 'crossroad' || currentMapType === 'roundabout') {
             ctx.moveTo(cx + halfRw, cy); ctx.lineTo(canvas.width, cy);
@@ -995,6 +1078,26 @@ function drawBackground(ctx) {
     
     ctx.stroke();
     ctx.setLineDash([]);
+    
+    if (currentMapType.startsWith('hotspot_')) {
+        let textStr = '';
+        if (currentMapType === 'hotspot_neihu') {
+            textStr = '內湖路一段47巷';
+        } else if (currentMapType === 'hotspot_jinlong') {
+            textStr = '金龍路13巷';
+        }
+        
+        if (textStr !== '') {
+            ctx.fillStyle = '#fbbf24'; // Yellow color
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.font = 'bold 80px "Noto Sans TC"';
+            
+            // Draw on the top grass (cy - halfRw - 80)
+            const halfRw = 300; // rw is 600, halfRw is 300
+            ctx.fillText(textStr, cx, cy - halfRw - 80);
+        }
+    }
 }
 
 function transitionMap(exitDir) {
@@ -1015,7 +1118,7 @@ function transitionMap(exitDir) {
         const halfRw_bot = 150;
         // Only left/right exits from the bottom road return to normal maps
         if (player.y >= horizY_bot - halfRw_bot - 50) {
-            validMaps = ['crossroad', 'straight_h', 'roundabout'];
+            validMaps = ['crossroad', 'straight_h', 'roundabout', 'hotspot_neihu', 'hotspot_jinlong', 'mountain'];
         } else {
             validMaps = ['freeway']; // ramp exits back to freeway
         }
@@ -1029,10 +1132,10 @@ function transitionMap(exitDir) {
         if (player.y <= C_y + 30) {
             validMaps = ['freeway'];
         } else {
-            validMaps = ['crossroad', 'straight_h'];
+            validMaps = ['crossroad', 'straight_h', 'hotspot_neihu', 'hotspot_jinlong', 'mountain'];
         }
     } else if (exitDir === 'left' || exitDir === 'right') {
-        validMaps = ['crossroad', 'straight_h', 'roundabout', 'interchange_up'];
+        validMaps = ['crossroad', 'straight_h', 'roundabout', 'interchange_up', 'hotspot_neihu', 'hotspot_jinlong', 'mountain'];
     } else if (exitDir === 'up') {
         validMaps = ['crossroad', 'straight_v', 'roundabout'];
     } else if (exitDir === 'down') {
@@ -1076,9 +1179,138 @@ function transitionMap(exitDir) {
     }
 }
 
+// ==========================================
+// Firebase Setup
+// ==========================================
+const firebaseConfig = {
+    apiKey: "AIzaSyBFJiuoHtvcsKVINyzfp8cYbGzxKqpHt9w",
+    authDomain: "snake-roadkill-game.firebaseapp.com",
+    projectId: "snake-roadkill-game",
+    storageBucket: "snake-roadkill-game.firebasestorage.app",
+    messagingSenderId: "386474776749",
+    appId: "1:386474776749:web:62614ade010c0f9515ce24",
+    measurementId: "G-58ENBJ8C20"
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+
+// UI refs for leaderboard
+const leaderboardModal = document.getElementById('leaderboard-modal');
+const leaderboardBody = document.getElementById('leaderboard-body');
+const leaderboardBtn = document.getElementById('leaderboard-btn');
+const gameOverLeaderboardBtn = document.getElementById('game-over-leaderboard-btn');
+const scoreSubmitContainer = document.getElementById('score-submit-container');
+const submitScoreBtn = document.getElementById('submit-score-btn');
+const playerNameInput = document.getElementById('player-name');
+const submitMessage = document.getElementById('submit-message');
+const closeBtn = document.querySelector('.close-btn');
+
+let isScoreSubmitted = false;
+
+// ==========================================
+// Leaderboard: Fetch & Render Top 10
+// ==========================================
+async function fetchLeaderboard() {
+    leaderboardBody.innerHTML = '<tr><td colspan="5" class="loading-text">載入中...</td></tr>';
+    try {
+        const snapshot = await db.collection('scores')
+            .orderBy('score', 'desc')
+            .limit(50)
+            .get();
+
+        if (snapshot.empty) {
+            leaderboardBody.innerHTML = '<tr><td colspan="5" class="loading-text">還沒有紀錄，快來成為第一名！</td></tr>';
+            return;
+        }
+
+        // 先比分數（高到低），分數相同再比存活時間（長到短）
+        const sorted = snapshot.docs.sort((a, b) => {
+            const da = a.data(), db2 = b.data();
+            if (db2.score !== da.score) return db2.score - da.score;
+            return (db2.survivalTime || 0) - (da.survivalTime || 0);
+        }).slice(0, 10);
+
+        leaderboardBody.innerHTML = '';
+        sorted.forEach((doc, i) => {
+            const data = doc.data();
+            const rank = i + 1;
+            const rankClass = rank === 1 ? 'top-rank-1' : rank === 2 ? 'top-rank-2' : rank === 3 ? 'top-rank-3' : '';
+            const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+            const date = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' }) : '-';
+            const row = document.createElement('tr');
+            row.innerHTML = `
+                <td class="${rankClass}">${medal}</td>
+                <td class="${rankClass}">${data.name || '匿名'}</td>
+                <td>${data.score}</td>
+                <td>${data.survivalTime != null ? Math.floor(data.survivalTime) + 's' : '-'}</td>
+                <td>${date}</td>
+            `;
+            leaderboardBody.appendChild(row);
+        });
+    } catch (e) {
+        leaderboardBody.innerHTML = '<tr><td colspan="5" class="loading-text" style="color:#ef4444;">讀取失敗，請稍後再試</td></tr>';
+    }
+}
+
+// ==========================================
+// Leaderboard: Submit Score
+// ==========================================
+async function submitScore() {
+    const name = playerNameInput.value.trim();
+    if (!name) {
+        submitMessage.textContent = '請先輸入名字！';
+        submitMessage.className = 'submit-message error';
+        return;
+    }
+    if (isScoreSubmitted) return;
+
+    submitScoreBtn.disabled = true;
+    submitMessage.textContent = '上傳中...';
+    submitMessage.className = 'submit-message';
+
+    try {
+        await db.collection('scores').add({
+            name: name,
+            score: score,
+            survivalTime: survivalTime,
+            hitCount: hitCount,
+            timestamp: firebase.firestore.FieldValue.serverTimestamp()
+        });
+        isScoreSubmitted = true;
+        submitMessage.textContent = '✅ 上傳成功！';
+        submitMessage.className = 'submit-message success';
+    } catch (e) {
+        submitScoreBtn.disabled = false;
+        submitMessage.textContent = '❌ 上傳失敗，請重試';
+        submitMessage.className = 'submit-message error';
+    }
+}
+
+// ==========================================
+// Modal Open/Close Helpers
+// ==========================================
+function openLeaderboard() {
+    leaderboardModal.classList.add('active');
+    fetchLeaderboard();
+}
+
+function closeLeaderboard() {
+    leaderboardModal.classList.remove('active');
+}
+
+// ==========================================
 // Event Listeners
+// ==========================================
 startBtn.addEventListener('click', startGame);
 restartBtn.addEventListener('click', startGame);
+submitScoreBtn.addEventListener('click', submitScore);
+leaderboardBtn.addEventListener('click', openLeaderboard);
+gameOverLeaderboardBtn.addEventListener('click', openLeaderboard);
+closeBtn.addEventListener('click', closeLeaderboard);
+leaderboardModal.addEventListener('click', (e) => {
+    if (e.target === leaderboardModal) closeLeaderboard();
+});
 
 // Initial Render
 ctx.fillStyle = '#0f172a';

@@ -24,9 +24,10 @@
                         </p>
                         <p class="intro-item">
                             <span class="rule-badge success">避難</span>
-                            路上有兩類車輛：
+                            路上有三類車輛：
                             <br>• 🚗 <strong>三寶車</strong>：無車燈、速度極快、橫衝直撞！
                             <br>• 💡 <strong>友善車</strong>：開黃色燈、速度較慢，會主動減速轉向避開你。
+                            <br>• 🥴 <strong>酒駕車</strong>：紫色車身，行跡飄忽不定，會亂轉圈或突然倒車！
                         </p>
                         <p class="intro-item">
                             <span class="rule-badge success">保育</span>
@@ -52,9 +53,37 @@
                             在高速公路後半段，尋找<strong>向下交流道（引道）</strong>駛離，即可安全重返一般平地地形。
                         </p>
                     </div>
+
+                    <!-- 第三欄：路殺熱點 -->
+                    <div class="intro-card danger-zone">
+                        <h3 class="danger-title">💀 路殺熱點</h3>
+                        <p class="intro-item">
+                            <span class="warning-text">📍 內湖路一段47巷</span>
+                            <br>
+                            <span class="rule-badge alert" style="margin-top: 6px;">警告</span>車速高達 1.5 倍且極少友善車！
+                        </p>
+                        <p class="intro-item">
+                            <span class="warning-text">📍 金龍路13巷</span>
+                            <br>
+                            <span class="rule-badge alert" style="margin-top: 6px;">警告</span>道路寬度僅剩一半且極少友善車！
+                        </p>
+                    </div>
+
+                    <!-- 第四欄：漆黑山路 -->
+                    <div class="intro-card danger-zone">
+                        <h3 class="danger-title">⛰️ 漆黑山路</h3>
+                        <p class="intro-item">
+                            <span class="rule-badge alert">視線極差</span>
+                            山區道路缺乏照明，伸手不見五指！
+                            <br>你只能勉強看清蛇蛇周圍一小圈範圍的視野，請步步為營，小心隨時衝出來的車輛！
+                        </p>
+                    </div>
                 </div>
 
-                <button id="start-btn">開始遊戲</button>
+                <div class="start-btn-group">
+                    <button id="start-btn">開始遊戲</button>
+                    <button id="leaderboard-btn">全球排行榜</button>
+                </div>
             </div>
         </div>
 
@@ -93,12 +122,54 @@
                     <span id="final-hits" class="stat-value">0</span>
                 </div>
             </div>
-            <button id="restart-btn">重新開始</button>
+            <!-- 上傳分數 UI -->
+            <div id="score-submit-container" class="score-submit-card" style="display: none;">
+                <h3>🏆 登上全球排行榜</h3>
+                <div class="submit-row">
+                    <input type="text" id="player-name" placeholder="輸入你的名字" maxlength="10">
+                    <button id="submit-score-btn">上傳分數</button>
+                </div>
+                <p id="submit-message" class="submit-message"></p>
+            </div>
+            
+            <div class="game-over-btn-group">
+                <button id="restart-btn">重新開始</button>
+                <button id="game-over-leaderboard-btn">全球排行榜</button>
+            </div>
         </div>
     </div>
     
     <canvas id="gameCanvas"></canvas>
 
+    <!-- 全球排行榜 Modal -->
+    <div id="leaderboard-modal" class="modal-overlay">
+        <div class="modal-content">
+            <span class="close-btn">&times;</span>
+            <h2>🏆 全球排行榜 🏆</h2>
+            <div class="leaderboard-table-container">
+                <table id="leaderboard-table">
+                    <thead>
+                        <tr>
+                            <th style="width: 15%">排名</th>
+                            <th style="width: 35%">玩家</th>
+                            <th style="width: 20%">保育分數</th>
+                            <th style="width: 15%">存活時間</th>
+                            <th style="width: 15%">日期</th>
+                        </tr>
+                    </thead>
+                    <tbody id="leaderboard-body">
+                        <tr>
+                            <td colspan="5" class="loading-text">載入中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase SDK Compat -->
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
     <script src="game.js"></script>
 </body>
 </html>
