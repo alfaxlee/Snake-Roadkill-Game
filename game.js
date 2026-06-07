@@ -574,6 +574,7 @@ function showGameOver() {
     isScoreSubmitted = false;
     submitScoreBtn.disabled = false;
     playerNameInput.value = '';
+    if (playerColorInput) playerColorInput.value = '#fbbf24';
     if (submitMessage) submitMessage.textContent = '';
     
     if (scoreSubmitContainer) scoreSubmitContainer.style.display = 'block';
@@ -1200,10 +1201,36 @@ const gameOverLeaderboardBtn = document.getElementById('game-over-leaderboard-bt
 const scoreSubmitContainer = document.getElementById('score-submit-container');
 const submitScoreBtn = document.getElementById('submit-score-btn');
 const playerNameInput = document.getElementById('player-name');
+const playerColorInput = document.getElementById('player-color');
 const submitMessage = document.getElementById('submit-message');
 const closeBtn = document.querySelector('.close-btn');
 
 let isScoreSubmitted = false;
+
+function normalizeHexColor(color) {
+    return /^#[0-9a-f]{6}$/i.test(color) ? color : null;
+}
+
+function hexToRgba(hex, alpha) {
+    const normalized = normalizeHexColor(hex);
+    if (!normalized) return null;
+
+    const value = normalized.slice(1);
+    const r = parseInt(value.slice(0, 2), 16);
+    const g = parseInt(value.slice(2, 4), 16);
+    const b = parseInt(value.slice(4, 6), 16);
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function applyTopRankColor(cell, rankClass, color) {
+    cell.className = rankClass;
+
+    const normalized = normalizeHexColor(color);
+    if (!rankClass || !normalized) return;
+
+    cell.style.color = normalized;
+    cell.style.textShadow = `0 0 8px ${hexToRgba(normalized, 0.5)}`;
+}
 
 // ==========================================
 // Leaderboard: Fetch & Render Top 10
@@ -1236,13 +1263,23 @@ async function fetchLeaderboard() {
             const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
             const date = data.timestamp ? new Date(data.timestamp.toDate()).toLocaleDateString('zh-TW', { month: '2-digit', day: '2-digit' }) : '-';
             const row = document.createElement('tr');
-            row.innerHTML = `
-                <td class="${rankClass}">${medal}</td>
-                <td class="${rankClass}">${data.name || '匿名'}</td>
-                <td>${data.score}</td>
-                <td>${data.survivalTime != null ? Math.floor(data.survivalTime) + 's' : '-'}</td>
-                <td>${date}</td>
-            `;
+            const rankCell = document.createElement('td');
+            const nameCell = document.createElement('td');
+            const scoreCell = document.createElement('td');
+            const timeCell = document.createElement('td');
+            const dateCell = document.createElement('td');
+
+            rankCell.textContent = medal;
+            nameCell.textContent = data.name || '匿名';
+            scoreCell.textContent = data.score;
+            timeCell.textContent = data.survivalTime != null ? Math.floor(data.survivalTime) + 's' : '-';
+            dateCell.textContent = date;
+
+            const topRankColor = rank <= 3 ? data.playerColor : null;
+            applyTopRankColor(rankCell, rankClass, topRankColor);
+            applyTopRankColor(nameCell, rankClass, topRankColor);
+
+            row.append(rankCell, nameCell, scoreCell, timeCell, dateCell);
             leaderboardBody.appendChild(row);
         });
     } catch (e) {
@@ -1255,6 +1292,7 @@ async function fetchLeaderboard() {
 // ==========================================
 async function submitScore() {
     const name = playerNameInput.value.trim();
+    const playerColor = normalizeHexColor(playerColorInput?.value) || '#fbbf24';
     if (!name) {
         submitMessage.textContent = '請先輸入名字！';
         submitMessage.className = 'submit-message error';
@@ -1273,6 +1311,7 @@ async function submitScore() {
             score: score,
             survivalTime: survivalTime,
             hitCount: hitCount,
+            playerColor: playerColor,
             timestamp: firebase.firestore.FieldValue.serverTimestamp()
         });
         isScoreSubmitted = true;
